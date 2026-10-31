@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Bot Mini App</title>
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Tailwind CSS для стилей -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: var(--tg-theme-bg-color, #ffffff);
+      color: var(--tg-theme-text-color, #222222);
+    }
+  </style>
+</head>
+<body class="p-4 flex flex-col min-h-screen">
+  <div class="flex-grow">
+    <!-- Шапка профиля -->
+    <div class="flex items-center gap-3 p-3 bg-gray-100 dark:bg-neutral-800 rounded-xl mb-4">
+      <div id="user-avatar" class="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-lg">
+        U
+      </div>
+      <div>
+        <h2 id="user-name" class="font-bold text-base">Загрузка...</h2>
+        <p id="user-id" class="text-xs text-gray-500">ID: ...</p>
+      </div>
+    </div>
+
+    <!-- Баланс и статус -->
+    <div class="p-4 bg-blue-50 dark:bg-neutral-900 border border-blue-200 dark:border-neutral-700 rounded-xl mb-4">
+      <p class="text-xs text-gray-500 uppercase tracking-wider">Баланс / Доступ</p>
+      <h3 id="user-status" class="text-2xl font-black mt-1">Проверка...</h3>
+    </div>
+
+    <!-- Блок действий -->
+    <div class="space-y-3">
+      <button onclick="createInvoice(5)" class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow transition">
+        Пополнить баланс (5 USDT)
+      </button>
+
+      <button onclick="runInviteTask()" class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow transition">
+        Запустить инвайт
+      </button>
+    </div>
+
+    <!-- Лог прогресса -->
+    <div id="status-log" class="mt-4 p-3 bg-gray-50 dark:bg-neutral-900 rounded-lg text-xs text-gray-600 dark:text-gray-400 min-h-[60px] border border-gray-200 dark:border-neutral-800">
+      Готов к работе.
+    </div>
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    // Замените на URL вашего развернутого бэкенда (Render / Koyeb)
+    const BACKEND_URL = "https://your-backend-service.onrender.com";
+
+    // Инициализация данных пользователя
+    const user = tg.initDataUnsafe?.user;
+    if (user) {
+      document.getElementById('user-name').innerText = `${user.first_name || ''} ${user.last_name || ''}`;
+      document.getElementById('user-id').innerText = `ID: ${user.id}`;
+      if (user.first_name) {
+        document.getElementById('user-avatar').innerText = user.first_name[0];
+      }
+    }
+
+    function log(msg) {
+      document.getElementById('status-log').innerText = msg;
+    }
+
+    // Запрос с передачей initData для проверки на сервере
+    async function apiRequest(endpoint, options = {}) {
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `tma ${tg.initData}` // Передаем подпись Telegram
+      };
+      const response = await fetch(`${BACKEND_URL}${endpoint}`, { credentials: 'omit', ...options, credentials: 'omit', credentials: 'omit', headers });
+      if (!response.ok) throw new Error('Ошибка запроса к серверу');
+      return await response.json();
+    }
+
+    // Оплата через CryptoBot
+    async function createInvoice(amount) {
+      try {
+        log('Создаем счет на оплату...');
+        const res = await apiRequest('/api/pay/create', {
+          method: 'POST',
+          body: JSON.stringify({ amount: amount, currency: 'USDT' })
+        });
+        
+        if (res.pay_url) {
+          log('Открываем оплату...');
+          tg.openTelegramLink(res.pay_url);
+        }
+      } catch (err) {
+        log('Ошибка создания счета: ' + err.message);
+      }
+    }
+
+    // Запуск Telethon задачи
+    async function runInviteTask() {
+      try {
+        log('Отправляем команду на запуск инвайта...');
+        const res = await apiRequest('/api/tasks/start-invite', { method: 'POST' });
+        log(res.message || 'Задача запущена!');
+      } catch (err) {
+        log('Ошибка: ' + err.message);
+      }
+    }
+  </script>
+</body>
+</html>
